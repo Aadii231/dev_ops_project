@@ -21,12 +21,8 @@ jobs:
               git clone https://github.com/Aadii231/dev_ops_project.git
             fi
             cd ~/dev_ops_project
-            
-            # Force Git to match GitHub main branch exactly and ignore local server deviations
             git fetch origin main
             git reset --hard origin/main
-            
-            # Use the correct integrated V2 docker compose syntax with standard flag orders
             sudo docker compose down
             sudo docker compose up -d --build
             sudo docker compose ps
