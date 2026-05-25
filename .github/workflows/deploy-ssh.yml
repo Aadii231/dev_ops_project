@@ -22,6 +22,8 @@ jobs:
             fi
             cd dev_ops_project
             git pull origin main
-            sudo docker compose up --build -d
-            sudo docker compose ps
-            sudo docker compose logs --tail 20
+            
+            # Use hyphenated syntax matching your EC2 engine installation
+            sudo docker-compose up -d --build
+            sudo docker-compose ps
+            sudo docker-compose logs --tail 20
