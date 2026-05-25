@@ -1,37 +1,46 @@
+version: '3.8'
+
 services:
   mongodb:
-    image: mongo:latest
+    image: mongo:4.4
     container_name: mongodb
     ports: 
-      - 27017:27017
+      - "27017:27017"
     volumes:
       - mongo-data:/data/db
     networks:
       - mern-network
+
   backend:
-    build: ./server
+    # Uses your Docker Hub image repository and dynamically inserts the version tag
+    image: adnanshakeel231/backend:${VERSION_TAG:-v1.0}
     container_name: backend
-    env_file:
-      - ./server/.env
+    # Fallback env variables directly in case .env isn't pushed to GitHub
+    environment:
+      - PORT=5000
+      - HOST=0.0.0.0
+      - MONGODB_URI=mongodb://mongodb:27017/blog
     ports:
-      - 5001:5001
+      - "5001:5000"
     depends_on:
       - mongodb
     networks:
       - mern-network
+
   frontend:
-    build:
-      context: ./client
-      dockerfile: Dockerfile
-    ports:
-      - 3000:3000
+    # Uses your Docker Hub image repository and dynamically inserts the version tag
+    image: adnanshakeel231/frontend:${VERSION_TAG:-v1.0}
     container_name: frontend
+    ports:
+      - "3000:3000"
     depends_on:
       - backend
     networks:
       - mern-network
+
 volumes:
   mongo-data:
+
 networks:
   mern-network:
     driver: bridge

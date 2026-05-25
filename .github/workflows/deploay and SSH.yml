@@ -1,0 +1,21 @@
+script: |
+            # 1. Move to home directory
+            cd ~
+            
+            # 2. If the repository folder doesn't exist yet, clone it first
+            if [ ! -d "dev_ops_project" ]; then
+              git clone https://github.com/Aadii231/dev_ops_project.git
+            fi
+            
+            # 3. Navigate into your exact repository directory
+            cd dev_ops_project
+            
+            # 4. Pull down the latest updates from GitHub
+            git pull origin main
+            
+            # 5. Build and run the updated containers
+            sudo docker compose up --build -d
+            
+            # 6. Print container status and tracking logs cleanly
+            sudo docker compose ps
+            sudo docker compose logs --tail 20
