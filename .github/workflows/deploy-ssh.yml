@@ -1,0 +1,27 @@
+name: Task 1 - SSH & Pull Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH into EC2 and Deploy
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~
+            if [ ! -d "dev_ops_project" ]; then
+              git clone https://github.com/Aadii231/dev_ops_project.git
+            fi
+            cd dev_ops_project
+            git pull origin main
+            sudo docker compose up --build -d
+            sudo docker compose ps
+            sudo docker compose logs --tail 20
