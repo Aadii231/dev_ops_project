@@ -1,0 +1,30 @@
+name: Task 1 - SSH & Pull Deploy
+
+on:
+  push:
+    branches:
+      - main  # Triggers whenever you push to the main branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH into EC2 and Deploy
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # 1. Navigate to your project folder (update path if needed)
+            cd ~/dev-ops-project || cd ~
+            
+            # 2. Pull the newest changes down from GitHub
+            git pull origin main
+            
+            # 3. Force Docker Compose to recreate containers if changes occurred
+            docker compose up -d --build
+            
+            # 4. Print running container information and logs for verification
+            docker compose ps
+            docker compose logs --tail=20
