@@ -16,14 +16,4 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            cd ~
-            if [ ! -d "dev_ops_project" ]; then
-              git clone https://github.com/Aadii231/dev_ops_project.git
-            fi
-            cd ~/dev_ops_project
-            git fetch origin main
-            git reset --hard origin/main
-            sudo docker compose down
-            sudo docker compose up -d --build
-            sudo docker compose ps
-            sudo docker compose logs --tail 20
+            cd ~ && if [ ! -d "dev_ops_project" ]; then git clone https://github.com/Aadii231/dev_ops_project.git; fi && cd ~/dev_ops_project && git fetch origin main && git reset --hard origin/main && sudo docker compose down && sudo docker compose up -d --build && sudo docker compose ps && sudo docker compose logs --tail 20
