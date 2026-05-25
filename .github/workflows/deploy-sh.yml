@@ -1,36 +1,33 @@
-name: Remote Deploy and Log Pipeline
+name: Task 1 - SSH & Pull Deploy
 
 on:
   push:
     branches:
-      - main  # Triggers the pipeline when you push to the main branch
+      - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Execute Remote SSH Commands
-        uses: appleboy/ssh-action@v1.0.3
+      - name: SSH into EC2 and Deploy
+        uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.REMOTE_HOST }}
-          username: ${{ secrets.REMOTE_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: 22 # Change if your server uses a non-standard SSH port
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # 1. Navigate to your project directory
-            cd /path/to/your/project/directory
+            cd ~
+            if [ ! -d "dev_ops_project" ]; then
+              git clone https://github.com/Aadii231/dev_ops_project.git
+            fi
+            cd ~/dev_ops_project
             
-            # 2. Pull the latest code from GitHub
-            echo "Pulling latest changes from GitHub..."
-            git pull origin main
+            # Force Git to match GitHub main branch exactly and ignore local server deviations
+            git fetch origin main
+            git reset --hard origin/main
             
-            # 3. Build and launch the containers
-            echo "Running Docker Compose..."
-            # Note: Depending on your server's Docker setup, you might need 'docker-compose' instead of 'docker compose'
-            docker compose down
-            docker compose up -d --build
-            
-            # 4. Show the running container logs
-            echo "Fetching latest container logs..."
-            docker compose logs --tail=50
+            # Use the correct integrated V2 docker compose syntax with standard flag orders
+            sudo docker compose down
+            sudo docker compose up -d --build
+            sudo docker compose ps
+            sudo docker compose logs --tail 20
