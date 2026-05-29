@@ -31,7 +31,6 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # Step 4: Build backend using your actual './server' directory
       - name: Build and Push Backend Image
         uses: docker/build-push-action@v5
         with:
@@ -42,7 +41,6 @@ jobs:
             adnanshakeel231/backend:${{ env.VERSION_TAG }}
             adnanshakeel231/backend:latest
 
-      # Step 5: Build frontend using your actual './client' directory
       - name: Build and Push Frontend Image
         uses: docker/build-push-action@v5
         with:
@@ -74,11 +72,21 @@ jobs:
             fi
             cd ~/dev_ops_project
             
+            # Wipe out local configs to match your latest GitHub push
             git fetch origin main
             git reset --hard origin/main
             
+            # Export the version tag for this specific run
             export VERSION_TAG=${{ needs.build-and-push.outputs.version_tag }}
             
+            # 🚨 1. Stop and remove the old running containers completely
             sudo /usr/local/bin/docker-compose down
+            
+            # 👑 2. THE CRITICAL FIX: Force the server to pull the brand new images from Docker Hub
+            sudo VERSION_TAG=$VERSION_TAG /usr/local/bin/docker-compose pull
+            
+            # 3. Boot up the freshly pulled versions in detached mode
             sudo VERSION_TAG=$VERSION_TAG /usr/local/bin/docker-compose up -d
+            
+            # 4. Print container status to confirm success
             sudo /usr/local/bin/docker-compose ps
