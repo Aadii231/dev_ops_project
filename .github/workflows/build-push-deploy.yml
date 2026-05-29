@@ -76,20 +76,16 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             
-            # Fetch the specific output version tag from Job 1
-            DEPLOY_TAG="${{ needs.build-and-push.outputs.version_tag }}"
+            # 👑 THE UNSTOPPABLE FIX: Modify docker-compose directly to force :latest execution
+            sed -i 's/\${VERSION_TAG:-v1.0}/latest/g' docker-compose.yml
+            sed -i 's/\${VERSION_TAG}/latest/g' docker-compose.yml
             
-            # 👑 FORCE REWRITE THE ENVIRONMENT FILE DIRECTLY ON EC2
-            echo "VERSION_TAG=$DEPLOY_TAG" > .env
+            # 🚨 FORCE EXPLICIT BINARY PATH ROUTING
+            # This completely bypasses the "unknown command" engine error on your EC2
+            sudo /usr/local/bin/docker-compose down --remove-orphans
             
-            # Stop the lingering old containers completely
-            sudo /usr/local/bin/docker-compose down
-            
-            # Explicitly force an absolute pull of the new image tags using the env file configurations
             sudo /usr/local/bin/docker-compose pull
             
-            # Boot up the fresh container builds in background mode
-            sudo /usr/local/bin/docker-compose up -d
+            sudo /usr/local/bin/docker-compose up -d --force-recreate
             
-            # Verify the newly active status in deployment output logs
             sudo /usr/local/bin/docker-compose ps
