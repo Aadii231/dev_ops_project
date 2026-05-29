@@ -63,11 +63,10 @@ jobs:
   # JOB 2: Connect to your server and run the new container versions
   # =========================================================
   deploy-to-ec2:
-    needs: build-and-push # CRITICAL: This prevents deployment from starting if the build fails
+    needs: build-and-push
     runs-on: ubuntu-latest
     
     steps:
-      # Step 1: Securely connect to your AWS instance using SSH
       - name: SSH into EC2 and Run Dynamic Version Stack
         uses: appleboy/ssh-action@master
         with:
@@ -81,21 +80,22 @@ jobs:
             fi
             cd ~/dev_ops_project
             
-            # Wipe out local configurations on the server to match GitHub cleanly
+            # Fetch latest repository tracking lines
             git fetch origin main
             git reset --hard origin/main
             
-            # Grab the unique version tag calculated in Job 1
-            export VERSION_TAG=${{ needs.build-and-push.outputs.version_tag }}
+            # 👑 THE ABSOLUTE FIX: Write the version tag into a local file on the server.
+            # This completely bypasses 'sudo' dropping session environment variables!
+            echo "VERSION_TAG=${{ needs.build-and-push.outputs.version_tag }}" > .env
             
-            # Stop the old running stack safely while preserving environment variables
-            sudo -E VERSION_TAG=$VERSION_TAG /usr/local/bin/docker-compose down
+            # Stop the old running stack safely
+            sudo /usr/local/bin/docker-compose down
             
-            # Force the server to pull the brand new images from Docker Hub
-            sudo -E VERSION_TAG=$VERSION_TAG /usr/local/bin/docker-compose pull
+            # Pull down the fresh images explicitly using the newly saved environment settings
+            sudo /usr/local/bin/docker-compose pull
             
-            # Start the containers back up using the new image version tags
-            sudo -E VERSION_TAG=$VERSION_TAG /usr/local/bin/docker-compose up -d
+            # Run the new containers in background detached mode
+            sudo /usr/local/bin/docker-compose up -d
             
-            # Verify the newly active image tags on the server
-            sudo -E VERSION_TAG=$VERSION_TAG /usr/local/bin/docker-compose ps
+            # Show the active container list in your logs
+            sudo /usr/local/bin/docker-compose ps

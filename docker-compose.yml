@@ -12,6 +12,7 @@ services:
       - mern-network
 
   backend:
+    # 🚨 This must use the exact variable notation ${VERSION_TAG:-v1.0}
     image: adnanshakeel231/backend:${VERSION_TAG:-v1.0}
     container_name: backend
     environment:
@@ -26,6 +27,7 @@ services:
       - mern-network
 
   frontend:
+    # 🚨 This must use the exact variable notation ${VERSION_TAG:-v1.0}
     image: adnanshakeel231/frontend:${VERSION_TAG:-v1.0}
     container_name: frontend
     ports:
