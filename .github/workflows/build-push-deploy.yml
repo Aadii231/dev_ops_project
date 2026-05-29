@@ -1,28 +1,23 @@
-# The display name of your automated pipeline workflow
 name: Task 2 - Build, Push, and Version Deploy
 
-# Controls when the action will run
 on:
   push:
     branches:
-      - main # Triggers the pipeline every single time you push code to the main branch
+      - main
 
 jobs:
   # =========================================================
   # JOB 1: Compile code, build Docker images, and push to cloud
   # =========================================================
   build-and-push:
-    runs-on: ubuntu-latest # Runs on a clean cloud computer provided by GitHub
+    runs-on: ubuntu-latest
     outputs:
-      # Saves the version tag generated in this job so Job 2 (deployment) can read it later
       version_tag: ${{ steps.set_version.outputs.VERSION_TAG }}
     
     steps:
-      # Step 1: Clone your repository files onto GitHub's cloud runner environment
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # Step 2: Generate a unique version tag based on how many times this pipeline has run
       - name: Set Unique Version Tag
         id: set_version
         run: |
@@ -30,14 +25,12 @@ jobs:
           echo "VERSION_TAG=$TAG" >> $GITHUB_ENV
           echo "VERSION_TAG=$TAG" >> $GITHUB_OUTPUT
 
-      # Step 3: Authenticate with Docker Hub using your exact secret names
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # Step 4: Build backend using your actual './server' directory
       - name: Build and Push Backend Image
         uses: docker/build-push-action@v5
         with:
@@ -48,7 +41,6 @@ jobs:
             adnanshakeel231/backend:${{ env.VERSION_TAG }}
             adnanshakeel231/backend:latest
 
-      # Step 5: Build frontend using your actual './client' directory
       - name: Build and Push Frontend Image
         uses: docker/build-push-action@v5
         with:
@@ -80,22 +72,24 @@ jobs:
             fi
             cd ~/dev_ops_project
             
-            # Fetch latest repository tracking lines
+            # Reset configurations cleanly
             git fetch origin main
             git reset --hard origin/main
             
-            # 👑 THE ABSOLUTE FIX: Write the version tag into a local file on the server.
-            # This completely bypasses 'sudo' dropping session environment variables!
-            echo "VERSION_TAG=${{ needs.build-and-push.outputs.version_tag }}" > .env
+            # Fetch the specific output version tag from Job 1
+            DEPLOY_TAG="${{ needs.build-and-push.outputs.version_tag }}"
             
-            # Stop the old running stack safely
+            # 👑 FORCE REWRITE THE ENVIRONMENT FILE DIRECTLY ON EC2
+            echo "VERSION_TAG=$DEPLOY_TAG" > .env
+            
+            # Stop the lingering old containers completely
             sudo /usr/local/bin/docker-compose down
             
-            # Pull down the fresh images explicitly using the newly saved environment settings
+            # Explicitly force an absolute pull of the new image tags using the env file configurations
             sudo /usr/local/bin/docker-compose pull
             
-            # Run the new containers in background detached mode
+            # Boot up the fresh container builds in background mode
             sudo /usr/local/bin/docker-compose up -d
             
-            # Show the active container list in your logs
+            # Verify the newly active status in deployment output logs
             sudo /usr/local/bin/docker-compose ps

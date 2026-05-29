@@ -12,8 +12,8 @@ services:
       - mern-network
 
   backend:
-    # 🚨 This must use the exact variable notation ${VERSION_TAG:-v1.0}
-    image: adnanshakeel231/backend:${VERSION_TAG:-v1.0}
+    # 🚨 This exact syntax tells Docker Compose to check the .env file first
+    image: adnanshakeel231/backend:${VERSION_TAG}
     container_name: backend
     environment:
       - PORT=5000
@@ -27,8 +27,8 @@ services:
       - mern-network
 
   frontend:
-    # 🚨 This must use the exact variable notation ${VERSION_TAG:-v1.0}
-    image: adnanshakeel231/frontend:${VERSION_TAG:-v1.0}
+    # 🚨 This exact syntax tells Docker Compose to check the .env file first
+    image: adnanshakeel231/frontend:${VERSION_TAG}
     container_name: frontend
     ports:
       - "3000:3000"
