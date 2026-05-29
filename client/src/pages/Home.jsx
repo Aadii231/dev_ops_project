@@ -38,7 +38,7 @@ export default function Home() {
           inkwell<span className="text-accent">.</span>
         </h1>
         <p className="mt-3 text-muted text-sm">
-          A minimal space for your thoughts
+          A minimal space for your thoughts and ideas. Built with React, Node.js, and MongoDB.
         </p>
       </div>
 
