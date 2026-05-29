@@ -1,55 +1,51 @@
-# The display name of your automated pipeline workflow
 name: Task 2 - Build, Push, and Version Deploy
 
-# Controls when the action will run
 on:
   push:
     branches:
-      - main # Triggers the pipeline every single time you push code to the main branch
+      - main
 
 jobs:
   # =========================================================
   # JOB 1: Compile code, build Docker images, and push to cloud
   # =========================================================
   build-and-push:
-    runs-on: ubuntu-latest # Runs on a clean cloud computer provided by GitHub
+    runs-on: ubuntu-latest
     outputs:
-      # Saves the version tag generated in this job so Job 2 (deployment) can read it later
       version_tag: ${{ steps.set_version.outputs.VERSION_TAG }}
     
     steps:
-      # Step 1: Clone your repository files onto GitHub's cloud runner environment
+      # Step 1: Clone your repository files onto the GitHub cloud computer
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # Step 2: Generate a unique version tag based on how many times this pipeline has run
+      # Step 2: Generate a unique version tag based on run count
       - name: Set Unique Version Tag
         id: set_version
         run: |
-          # If this is the 10th time your pipeline runs, it sets TAG="v1.10"
           TAG="v1.${{ github.run_number }}"
           echo "VERSION_TAG=$TAG" >> $GITHUB_ENV
           echo "VERSION_TAG=$TAG" >> $GITHUB_OUTPUT
 
-      # Step 3: Authenticate with Docker Hub using your exact secret names
+      # Step 3: Authenticate with Docker Hub
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # Step 4: Build your backend files into an immutable image and upload it
+      # Step 4: Now that files exist, build and push the Backend Image
       - name: Build and Push Backend Image
         uses: docker/build-push-action@v5
         with:
-          context: ./backend # Tells Docker where your backend code sits
-          file: ./backend/Dockerfile # Points to the recipe file for building the image
-          push: true # Automatically pushes the image to Docker Hub after building
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
           tags: |
             adnanshakeel231/backend:${{ env.VERSION_TAG }}
             adnanshakeel231/backend:latest
 
-      # Step 5: Do the exact same build and upload process for your frontend React app
+      # Step 5: Build and push the Frontend Image
       - name: Build and Push Frontend Image
         uses: docker/build-push-action@v5
         with:
@@ -64,11 +60,10 @@ jobs:
   # JOB 2: Connect to your server and run the new container versions
   # =========================================================
   deploy-to-ec2:
-    needs: build-and-push # CRITICAL: This prevents deployment from starting if the build fails
+    needs: build-and-push
     runs-on: ubuntu-latest
     
     steps:
-      # Step 1: Securely connect to your AWS instance using SSH
       - name: SSH into EC2 and Run Dynamic Version Stack
         uses: appleboy/ssh-action@master
         with:
@@ -76,30 +71,17 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # 1. Navigate to home directory
             cd ~
-            
-            # 2. Check if the project folder exists. If not, clone it fresh
             if [ ! -d "dev_ops_project" ]; then
               git clone https://github.com/Aadii231/dev_ops_project.git
             fi
-            
-            # 3. Enter the project directory
             cd ~/dev_ops_project
             
-            # 4. Wipe out any local changes on the server and pull down the latest docker-compose layouts cleanly
             git fetch origin main
             git reset --hard origin/main
             
-            # 5. Grab the unique version tag calculated in Job 1 and set it on your server's current shell session
             export VERSION_TAG=${{ needs.build-and-push.outputs.version_tag }}
             
-            # 6. Stop and remove any currently running containers to clear old memory hooks
             sudo /usr/local/bin/docker-compose down
-            
-            # 7. Start the containers back up using the dynamic VERSION_TAG environment pointer
-            # This forces your server to fetch the exact pre-built image version from Docker Hub!
             sudo VERSION_TAG=$VERSION_TAG /usr/local/bin/docker-compose up -d
-            
-            # 8. Print out container status to wrap up Task 2 cleanly
             sudo /usr/local/bin/docker-compose ps
