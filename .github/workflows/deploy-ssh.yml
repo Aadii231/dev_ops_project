@@ -1,4 +1,4 @@
-name: Task 1 - SSH & Pull Deploy
+name: Task 2 - Build, Push, and Version Deploy
 
 on:
   push:
@@ -6,10 +6,49 @@ on:
       - main
 
 jobs:
-  deploy:
+  build-and-push:
+    runs-on: ubuntu-latest
+    outputs:
+      version_tag: ${{ steps.set_version.outputs.VERSION_TAG }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set Unique Version Tag
+        id: set_version
+        run: |
+          # Creates a clean build tag using the run number (e.g., v1.1, v1.2)
+          TAG="v1.${{ github.run_number }}"
+          echo "VERSION_TAG=$TAG" >> $GITHUB_ENV
+          echo "VERSION_TAG=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and Push Backend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/backend:${{ env.VERSION_TAG }},${{ secrets.DOCKERHUB_USERNAME }}/backend:latest
+
+      - name: Build and Push Frontend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ env.VERSION_TAG }},${{ secrets.DOCKERHUB_USERNAME }}/frontend:latest
+
+  deploy-to-ec2:
+    needs: build-and-push
     runs-on: ubuntu-latest
     steps:
-      - name: SSH into EC2 and Deploy
+      - name: SSH into EC2 and Run Dynamic Version Stack
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -21,9 +60,15 @@ jobs:
               git clone https://github.com/Aadii231/dev_ops_project.git
             fi
             cd ~/dev_ops_project
+            
+            # Fetch the layout changes cleanly
             git fetch origin main
             git reset --hard origin/main
-            sudo /usr/local/bin/docker-compose down
-            sudo /usr/local/bin/docker-compose up -d --build
+            
+            # Inject the dynamic build runner tag straight to the server profile instance runtime
+            export VERSION_TAG=${{ needs.build-and-push.outputs.version_tag }}
+            
+            # Restart the service matching the exact Docker Hub image versions
+            sudo docker-compose down
+            sudo VERSION_TAG=$VERSION_TAG /usr/local/bin/docker-compose up -d
             sudo /usr/local/bin/docker-compose ps
-            sudo /usr/local/bin/docker-compose logs --tail 20
