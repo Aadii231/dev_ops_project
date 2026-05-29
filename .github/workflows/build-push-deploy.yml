@@ -1,23 +1,28 @@
+# The display name of your automated pipeline workflow
 name: Task 2 - Build, Push, and Version Deploy
 
+# Controls when the action will run
 on:
   push:
     branches:
-      - main
+      - main # Triggers the pipeline every single time you push code to the main branch
 
 jobs:
   # =========================================================
   # JOB 1: Compile code, build Docker images, and push to cloud
   # =========================================================
   build-and-push:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # Runs on a clean cloud computer provided by GitHub
     outputs:
+      # Saves the version tag generated in this job so Job 2 (deployment) can read it later
       version_tag: ${{ steps.set_version.outputs.VERSION_TAG }}
     
     steps:
+      # Step 1: Clone your repository files onto GitHub's cloud runner environment
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # Step 2: Generate a unique version tag based on how many times this pipeline has run
       - name: Set Unique Version Tag
         id: set_version
         run: |
@@ -25,12 +30,14 @@ jobs:
           echo "VERSION_TAG=$TAG" >> $GITHUB_ENV
           echo "VERSION_TAG=$TAG" >> $GITHUB_OUTPUT
 
+      # Step 3: Authenticate with Docker Hub using your exact secret names
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      # Step 4: Build backend using your actual './server' directory
       - name: Build and Push Backend Image
         uses: docker/build-push-action@v5
         with:
@@ -41,6 +48,7 @@ jobs:
             adnanshakeel231/backend:${{ env.VERSION_TAG }}
             adnanshakeel231/backend:latest
 
+      # Step 5: Build frontend using your actual './client' directory
       - name: Build and Push Frontend Image
         uses: docker/build-push-action@v5
         with:
@@ -55,10 +63,11 @@ jobs:
   # JOB 2: Connect to your server and run the new container versions
   # =========================================================
   deploy-to-ec2:
-    needs: build-and-push
+    needs: build-and-push # CRITICAL: This prevents deployment from starting if the build fails
     runs-on: ubuntu-latest
     
     steps:
+      # Step 1: Securely connect to your AWS instance using SSH
       - name: SSH into EC2 and Run Dynamic Version Stack
         uses: appleboy/ssh-action@master
         with:
@@ -72,21 +81,21 @@ jobs:
             fi
             cd ~/dev_ops_project
             
-            # Wipe out local configs to match your latest GitHub push
+            # Wipe out local configurations on the server to match GitHub cleanly
             git fetch origin main
             git reset --hard origin/main
             
-            # Export the version tag for this specific run
+            # Grab the unique version tag calculated in Job 1
             export VERSION_TAG=${{ needs.build-and-push.outputs.version_tag }}
             
-            # 🚨 1. Stop and remove the old running containers completely
-            sudo /usr/local/bin/docker-compose down
+            # Stop the old running stack safely while preserving environment variables
+            sudo -E VERSION_TAG=$VERSION_TAG /usr/local/bin/docker-compose down
             
-            # 👑 2. THE CRITICAL FIX: Force the server to pull the brand new images from Docker Hub
-            sudo VERSION_TAG=$VERSION_TAG /usr/local/bin/docker-compose pull
+            # Force the server to pull the brand new images from Docker Hub
+            sudo -E VERSION_TAG=$VERSION_TAG /usr/local/bin/docker-compose pull
             
-            # 3. Boot up the freshly pulled versions in detached mode
-            sudo VERSION_TAG=$VERSION_TAG /usr/local/bin/docker-compose up -d
+            # Start the containers back up using the new image version tags
+            sudo -E VERSION_TAG=$VERSION_TAG /usr/local/bin/docker-compose up -d
             
-            # 4. Print container status to confirm success
-            sudo /usr/local/bin/docker-compose ps
+            # Verify the newly active image tags on the server
+            sudo -E VERSION_TAG=$VERSION_TAG /usr/local/bin/docker-compose ps
